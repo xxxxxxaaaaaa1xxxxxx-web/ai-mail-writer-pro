@@ -1,4 +1,4 @@
-"""Command-line interface for Phase 0.
+"""Command-line interface.
 
 Commands:
     x-auto status                      — show kill switch + schedule state
@@ -6,10 +6,11 @@ Commands:
     x-auto reset                       — clear the kill switch
     x-auto smoke  --account path.yml   — open a browser, visit example.com,
                                          print the title, shut down
+    x-auto trends --account path.yml   — fetch X trends via a scout account
+                                         (TTL-cached on disk)
 
-``smoke`` is the end-to-end sanity check for the browser session pool.
-It deliberately hits ``example.com`` — not X — because Phase 0 must not
-touch the target platform at all.
+``smoke`` hits example.com only and is safe to run any time.
+``trends`` hits X itself — use a **scout-only** account, never a posting one.
 """
 
 from __future__ import annotations
@@ -25,8 +26,10 @@ from .browser import BrowserSessionPool
 from .config import AccountConfig
 from .kill_switch import KillSwitch
 from .schedule import is_active
+from .trend_scout import DEFAULT_TTL_SECONDS, XTrendScout
 
 DEFAULT_STATE = Path("./state/kill_switch.json")
+DEFAULT_TRENDS_CACHE = Path("./state/trends")
 
 
 def _kill_switch(args: argparse.Namespace) -> KillSwitch:
@@ -100,6 +103,47 @@ def cmd_smoke(args: argparse.Namespace) -> int:
     return asyncio.run(_smoke(Path(args.account), Path(args.state_file)))
 
 
+async def _trends(
+    account_path: Path,
+    state_file: Path,
+    cache_dir: Path,
+    limit: int,
+    ttl_seconds: int,
+    force: bool,
+) -> int:
+    account = AccountConfig.from_yaml(account_path)
+    ks = KillSwitch(state_file)
+    if ks.is_tripped():
+        print("refusing to run trends: kill switch is tripped", file=sys.stderr)
+        return 2
+
+    pool = BrowserSessionPool(kill_switch=ks)
+    try:
+        session = await pool.get(account)
+        scout = XTrendScout(session, cache_dir=cache_dir, ttl_seconds=ttl_seconds)
+        trends = await scout.fetch(limit=limit, use_cache=not force)
+        for t in trends:
+            count = f"  ({t.post_count:,} posts)" if t.post_count else ""
+            cat = f"  [{t.category}]" if t.category else ""
+            print(f"{t.rank:3d}. {t.word}{count}{cat}")
+        return 0
+    finally:
+        await pool.close_all()
+
+
+def cmd_trends(args: argparse.Namespace) -> int:
+    return asyncio.run(
+        _trends(
+            account_path=Path(args.account),
+            state_file=Path(args.state_file),
+            cache_dir=Path(args.cache_dir),
+            limit=args.limit,
+            ttl_seconds=args.ttl,
+            force=args.force,
+        )
+    )
+
+
 def build_parser() -> argparse.ArgumentParser:
     p = argparse.ArgumentParser(prog="x-auto")
     p.add_argument(
@@ -124,6 +168,30 @@ def build_parser() -> argparse.ArgumentParser:
     sm = sub.add_parser("smoke", help="open browser and visit example.com")
     sm.add_argument("--account", required=True)
     sm.set_defaults(func=cmd_smoke)
+
+    tr = sub.add_parser(
+        "trends",
+        help="fetch X trends via a scout account (TTL-cached)",
+    )
+    tr.add_argument("--account", required=True, help="scout-only account YAML")
+    tr.add_argument("--limit", type=int, default=30)
+    tr.add_argument(
+        "--ttl",
+        type=int,
+        default=DEFAULT_TTL_SECONDS,
+        help="cache TTL in seconds (default: 900)",
+    )
+    tr.add_argument(
+        "--cache-dir",
+        default=str(DEFAULT_TRENDS_CACHE),
+        help="directory for cached trend JSON",
+    )
+    tr.add_argument(
+        "--force",
+        action="store_true",
+        help="bypass cache and hit X even if cache is fresh",
+    )
+    tr.set_defaults(func=cmd_trends)
 
     return p
 
