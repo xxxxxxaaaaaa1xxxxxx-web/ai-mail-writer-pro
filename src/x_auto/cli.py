@@ -1,16 +1,16 @@
 """Command-line interface.
 
 Commands:
-    x-auto status                      — show kill switch + schedule state
-    x-auto kill   --reason "..."       — trip the kill switch
-    x-auto reset                       — clear the kill switch
-    x-auto smoke  --account path.yml   — open a browser, visit example.com,
-                                         print the title, shut down
-    x-auto trends --account path.yml   — fetch X trends via a scout account
-                                         (TTL-cached on disk)
+    x-auto status                        — show kill switch + schedule state
+    x-auto kill      --reason "..."      — trip the kill switch
+    x-auto reset                         — clear the kill switch
+    x-auto smoke     --account path.yml  — browser smoke test against example.com
+    x-auto trends    --account path.yml  — fetch X trends via a scout account
+    x-auto analytics --account path.yml  — fetch self-account KPIs
+                                            (followers / verified / posts)
 
-``smoke`` hits example.com only and is safe to run any time.
-``trends`` hits X itself — use a **scout-only** account, never a posting one.
+``smoke`` hits example.com only.
+``trends`` and ``analytics`` hit X itself — use a dedicated scout account.
 """
 
 from __future__ import annotations
@@ -22,6 +22,11 @@ from datetime import datetime
 from pathlib import Path
 from zoneinfo import ZoneInfo
 
+from .analytics import (
+    DEFAULT_TTL_SECONDS as ANALYTICS_DEFAULT_TTL,
+    AccountMetrics,
+    ProfileMetricsScraper,
+)
 from .browser import BrowserSessionPool
 from .config import AccountConfig
 from .kill_switch import KillSwitch
@@ -30,6 +35,7 @@ from .trend_scout import DEFAULT_TTL_SECONDS, XTrendScout
 
 DEFAULT_STATE = Path("./state/kill_switch.json")
 DEFAULT_TRENDS_CACHE = Path("./state/trends")
+DEFAULT_METRICS_CACHE = Path("./state/metrics")
 
 
 def _kill_switch(args: argparse.Namespace) -> KillSwitch:
@@ -144,6 +150,80 @@ def cmd_trends(args: argparse.Namespace) -> int:
     )
 
 
+_BAR_WIDTH = 33
+
+
+def _progress_bar(ratio: float, width: int = _BAR_WIDTH) -> str:
+    filled = int(round(ratio * width))
+    filled = max(0, min(width, filled))
+    return "█" * filled + "░" * (width - filled)
+
+
+def _render_metrics(m: AccountMetrics) -> str:
+    lines = [f"@{m.handle}"]
+    lines.append(f"  followers:          {m.followers if m.followers is not None else '?'}")
+    lines.append(f"  following:          {m.following if m.following is not None else '?'}")
+
+    target = m.premium_followers_target
+    if m.verified_followers is not None:
+        progress = m.premium_progress() or 0.0
+        pct = progress * 100
+        lines.append(
+            f"  verified followers: {m.verified_followers} / {target}  ({pct:.1f}%)"
+        )
+        lines.append(f"    {_progress_bar(progress)}")
+    else:
+        lines.append(f"  verified followers: ? / {target}")
+
+    lines.append(f"  posts:              {m.posts if m.posts is not None else '?'}")
+
+    ratio = m.follow_ratio()
+    if ratio is not None:
+        warn = "  ⚠ above 1.1 guard" if ratio > 1.1 else ""
+        lines.append(f"  follow ratio:       {ratio:.2f}{warn}")
+
+    lines.append(f"  collected_at:       {m.collected_at}")
+    return "\n".join(lines)
+
+
+async def _analytics(
+    account_path: Path,
+    state_file: Path,
+    cache_dir: Path,
+    ttl_seconds: int,
+    force: bool,
+) -> int:
+    account = AccountConfig.from_yaml(account_path)
+    ks = KillSwitch(state_file)
+    if ks.is_tripped():
+        print("refusing to run analytics: kill switch is tripped", file=sys.stderr)
+        return 2
+
+    pool = BrowserSessionPool(kill_switch=ks)
+    try:
+        session = await pool.get(account)
+        scraper = ProfileMetricsScraper(
+            session, cache_dir=cache_dir, ttl_seconds=ttl_seconds
+        )
+        metrics = await scraper.fetch(use_cache=not force)
+        print(_render_metrics(metrics))
+        return 0
+    finally:
+        await pool.close_all()
+
+
+def cmd_analytics(args: argparse.Namespace) -> int:
+    return asyncio.run(
+        _analytics(
+            account_path=Path(args.account),
+            state_file=Path(args.state_file),
+            cache_dir=Path(args.cache_dir),
+            ttl_seconds=args.ttl,
+            force=args.force,
+        )
+    )
+
+
 def build_parser() -> argparse.ArgumentParser:
     p = argparse.ArgumentParser(prog="x-auto")
     p.add_argument(
@@ -192,6 +272,29 @@ def build_parser() -> argparse.ArgumentParser:
         help="bypass cache and hit X even if cache is fresh",
     )
     tr.set_defaults(func=cmd_trends)
+
+    an = sub.add_parser(
+        "analytics",
+        help="fetch self-account KPIs (followers / verified / posts)",
+    )
+    an.add_argument("--account", required=True)
+    an.add_argument(
+        "--ttl",
+        type=int,
+        default=ANALYTICS_DEFAULT_TTL,
+        help="cache TTL in seconds (default: 1800)",
+    )
+    an.add_argument(
+        "--cache-dir",
+        default=str(DEFAULT_METRICS_CACHE),
+        help="directory for cached metrics JSON",
+    )
+    an.add_argument(
+        "--force",
+        action="store_true",
+        help="bypass cache and hit X even if cache is fresh",
+    )
+    an.set_defaults(func=cmd_analytics)
 
     return p
 
