@@ -1,0 +1,44 @@
+# Example account config. Copy to accounts/<handle>.yml and customize.
+# Real account YAMLs are gitignored — never commit credentials or proxy URLs.
+
+handle: example_handle
+
+# Autonomy mode — see docs/x-monetization-automation-design.md §10
+# shadow         : generate only, do not post
+# human_approval : every action requires human sign-off
+# semi_auto      : ~50% auto, rest go to approval queue
+# full_auto      : 100% auto, protected by multi-stage filters + rollback
+mode: shadow
+
+# Progressive autonomy stage
+# S0 -> S1 -> S2 -> S3. Start every new account at S0.
+stage: S0
+
+# Fixed residential proxy for this account. Use ${ENV_VAR} to avoid
+# committing credentials. Example:
+#   proxy_url: "http://user:${PROXY_PASS}@jp.residential.example:8000"
+proxy_url: null
+
+# Persistent Playwright profile — cookies, localStorage, IndexedDB.
+user_data_dir: ./profiles/example_handle
+
+# Identity fixed per account; never rotate these.
+user_agent: >-
+  Mozilla/5.0 (iPhone; CPU iPhone OS 17_0 like Mac OS X)
+  AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.0 Mobile/15E148 Safari/604.1
+viewport:
+  width: 390
+  height: 844
+locale: ja-JP
+timezone: Asia/Tokyo
+headless: false
+
+# Safety envelope — intentionally conservative.
+daily_post_quota: 3
+circadian_start: "01:00"
+circadian_end: "08:00"
+
+# Full Auto guardrails (ignored in shadow / human_approval modes).
+rollback_enabled: true
+critic_threshold: 85
+duplication_threshold: 0.35
