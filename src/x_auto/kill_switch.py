@@ -7,6 +7,10 @@ ad-hoc CLI invocations) can trip it, and every automation action must call
 Rationale: a file-based implementation is resilient to process crashes and
 trivially observable by humans (``ls state/``), which matters more than
 performance at this stage.
+
+An optional ``on_trigger`` callback lets a caller record every trip to a
+side channel (e.g. the incidents SQLite table) without the KillSwitch itself
+needing to know about storage.
 """
 
 from __future__ import annotations
@@ -14,15 +18,24 @@ from __future__ import annotations
 import json
 from datetime import datetime, timezone
 from pathlib import Path
+from typing import Any, Callable
 
 
 class KillSwitchTripped(RuntimeError):
     """Raised when automation attempts to act while the kill switch is tripped."""
 
 
+TriggerCallback = Callable[[dict[str, Any]], None]
+
+
 class KillSwitch:
-    def __init__(self, state_file: Path) -> None:
+    def __init__(
+        self,
+        state_file: Path,
+        on_trigger: TriggerCallback | None = None,
+    ) -> None:
         self.state_file = state_file
+        self.on_trigger = on_trigger
 
     def is_tripped(self) -> bool:
         return self.state_file.exists()
@@ -46,6 +59,12 @@ class KillSwitch:
             json.dumps(payload, ensure_ascii=False, indent=2),
             encoding="utf-8",
         )
+        if self.on_trigger is not None:
+            # Best-effort — a failing recorder must not prevent the trip.
+            try:
+                self.on_trigger(payload)
+            except Exception:
+                pass
 
     def reset(self) -> None:
         if self.state_file.exists():
