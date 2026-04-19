@@ -80,9 +80,9 @@
   "topic_id": "T001",
   "publication_id": "JANUS-T001-v1",
   "published_urls": {
-    "gumroad": "https://zigokuglobal.gumroad.com/l/danshari7days",
+    "gumroad": "https://ensoletters.gumroad.com/l/danshari7days",
     "medium": "https://medium.com/better-humans/i-tried-...",
-    "substack": "https://zigoku.substack.com/p/danshari-7-days",
+    "substack": "https://ensoletters.substack.com/p/danshari-7-days",
     "karyakarsa": "...",
     "ghost": "..."
   },

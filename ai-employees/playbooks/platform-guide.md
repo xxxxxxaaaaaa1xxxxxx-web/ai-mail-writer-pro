@@ -143,7 +143,7 @@ Want the full 30-day kakeibo workbook with daily prompts?
 - メンバーシップ機能内蔵
 
 ### 攻略ポイント
-- 自社ドメイン（zigokuglobal.com）でブランド構築
+- 自社ドメイン（ensoletters.com）でブランド構築
 - SEO重視、長文記事＋メルマガ
 - $5-$15/月 のサブスク
 

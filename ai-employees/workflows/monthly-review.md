@@ -55,7 +55,7 @@
 ## CEO月次レポートテンプレート
 
 ```markdown
-# 【月次】ZIGOKU Global Inc. — YYYY年MM月度
+# 【月次】Enso Letters — YYYY年MM月度
 
 📊 売上：$XX,XXX（前月比 ±X% / 目標達成率 X%）
 👥 顧客：XXX人（新規 XXX / リピート XX）

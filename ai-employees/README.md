@@ -1,4 +1,4 @@
-# 海外note売上自動化AI組織「ZIGOKU Global Inc.」
+# 海外note売上自動化AI組織「Enso Letters」
 
 ## 会社概要
 

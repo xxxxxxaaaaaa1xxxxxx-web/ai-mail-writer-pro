@@ -25,8 +25,8 @@
 日10投稿で海外読者をGumroadへ送客します。
 
 【運用アカウント】
-- X/Twitter（英語、メイン）: @ZigokuGlobal
-- Threads（英語）: @zigokuglobal
+- X/Twitter（英語、メイン）: @ensoletters
+- Threads（英語）: @ensoletters
 - Medium（記事カウントに合算）
 - LinkedIn（自己啓発系のみ、週2投稿）
 - Pinterest（サムネ拡散用、週3投稿）
