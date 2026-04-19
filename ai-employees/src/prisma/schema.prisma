@@ -1,0 +1,113 @@
+// Prisma schema for Enso Letters orchestrator
+// Run: npx prisma migrate dev --name init
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+model Topic {
+  id                 String    @id
+  week               String // e.g. "2026-W16"
+  conceptKeyword     String // e.g. "danshari"
+  titleJpDraft       String
+  titleEnSeed        String
+  targetPersona      String
+  sellingAngle       String
+  targetPrice        Int // USD
+  expectedFirstWeek  Int
+  platformPriority   String // JSON array
+  competitorAvgPrice Int?
+  expectedWordCount  Int
+  deadline           DateTime
+  status             String    @default("pending")
+  rationale          String?
+  createdAt          DateTime  @default(now())
+  updatedAt          DateTime  @updatedAt
+
+  draft       Draft?
+  translation Translation?
+  package     Package?
+  publication Publication?
+  sales       Sale[]
+}
+
+model Draft {
+  id             String   @id @default(cuid())
+  topicId        String   @unique
+  topic          Topic    @relation(fields: [topicId], references: [id])
+  titleJp        String
+  bodyJpMarkdown String
+  wordCount      Int
+  translationNotes String // JSON
+  keyJpTerms     String // JSON array
+  createdAt      DateTime @default(now())
+}
+
+model Translation {
+  id             String   @id @default(cuid())
+  topicId        String   @unique
+  topic          Topic    @relation(fields: [topicId], references: [id])
+  titleEn        String
+  subtitleEn     String
+  bodyEnMarkdown String
+  wordCountEn    Int
+  preservedJpTerms String // JSON array
+  seoKeywords    String // JSON array
+  createdAt      DateTime @default(now())
+}
+
+model Package {
+  id           String   @id @default(cuid())
+  topicId      String   @unique
+  topic        Topic    @relation(fields: [topicId], references: [id])
+  platformsJson String // JSON: gumroad/medium/substack packages
+  thumbnailUrl String?
+  createdAt    DateTime @default(now())
+}
+
+model Publication {
+  id              String   @id @default(cuid())
+  topicId         String   @unique
+  topic           Topic    @relation(fields: [topicId], references: [id])
+  publishedUrlsJson String // JSON: {gumroad, medium, substack, ...}
+  publishedAt     DateTime @default(now())
+}
+
+model Sale {
+  id            String   @id @default(cuid())
+  topicId       String
+  topic         Topic    @relation(fields: [topicId], references: [id])
+  platform      String
+  priceUsd      Float
+  quantity      Int      @default(1)
+  soldAt        DateTime @default(now())
+  customerCountry String?
+}
+
+model DailyReport {
+  id                 String   @id @default(cuid())
+  reportDate         DateTime @unique
+  totalRevenueUsd    Float
+  totalSalesCount    Int
+  anomaliesJson      String? // JSON array
+  insightsJson       String? // JSON array
+  createdAt          DateTime @default(now())
+}
+
+model EscalationLog {
+  id              String   @id @default(cuid())
+  level           String // "URGENT" | "MONTHLY" | "INTERNAL"
+  eventType       String
+  context         String
+  recommendation  String
+  ceoNotifiedAt   DateTime?
+  ceoResponseAt   DateTime?
+  ceoDecision     String?
+  outcome         String?
+  createdAt       DateTime @default(now())
+}

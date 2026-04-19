@@ -1,0 +1,33 @@
+{
+  "name": "enso-letters-orchestrator",
+  "version": "0.1.0",
+  "private": true,
+  "description": "AI-driven orchestrator for Enso Letters — 11 autonomous AI employees producing and selling Japanese-wisdom content on overseas platforms (Gumroad/Medium/Substack/etc).",
+  "type": "module",
+  "engines": {
+    "node": ">=20"
+  },
+  "scripts": {
+    "build": "tsc",
+    "produce": "tsx src/cli/produce.ts",
+    "weekly": "tsx src/cli/weekly.ts",
+    "monthly": "tsx src/cli/monthly.ts",
+    "db:generate": "prisma generate",
+    "db:migrate": "prisma migrate dev",
+    "db:seed": "tsx prisma/seed.ts",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@anthropic-ai/sdk": "^0.88.0",
+    "@prisma/client": "^5.22.0",
+    "dotenv": "^16.4.7",
+    "pino": "^9.5.0",
+    "zod": "^3.24.1"
+  },
+  "devDependencies": {
+    "@types/node": "^22.10.2",
+    "prisma": "^5.22.0",
+    "tsx": "^4.19.2",
+    "typescript": "^5.7.2"
+  }
+}
